@@ -29,8 +29,10 @@ import com.google.android.gms.location.LocationCallback;
 import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationResult;
 import com.google.android.gms.location.LocationServices;
+import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
+import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.FirebaseFirestore;
 
 import java.io.BufferedReader;
@@ -40,7 +42,9 @@ import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 
 public class MainActivity extends AppCompatActivity {
@@ -88,6 +92,7 @@ public class MainActivity extends AppCompatActivity {
 
     // Firestone database
     FirebaseFirestore db = FirebaseFirestore.getInstance();
+    Map<String, Object> currentControlStationDoc = new HashMap<>();
 
 
     @Override
@@ -138,7 +143,7 @@ public class MainActivity extends AppCompatActivity {
         updateGPS();
 
         // Fill control list view
-        fillControlStationList();
+        fillControlStationList(currentControlStationDoc);
 
         //--- UI Listeners ---//
         // SUBMIT
@@ -151,7 +156,8 @@ public class MainActivity extends AppCompatActivity {
                     // Already in list -> ignore
                 }
                 else{ // Not yet in list
-                    controlStationsCurrent.add(stationName);
+                    //controlStationsCurrent.add(stationName);
+                    addToDatabase(currentControlStationDoc, "StationName: ", stationName);
                 }
                 Log.d("MyActivity", "Added to control stations: " + stationName);
                 //Log.d("MyActivity", "Check control station list " + controlStationsCurrent.get(0));
@@ -193,7 +199,6 @@ public class MainActivity extends AppCompatActivity {
                 });
             }
         });
-
 
     } // end Oncreate
 
@@ -372,13 +377,38 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    //--- Firebase Functions ---//
+    private void addToDatabase(Map<String, Object> collection, String document, String dataElement){
+        // Create a new user with a first and last name
+        collection.put(document, dataElement);
+        // Add a new document with a generated ID
+        db.collection("users")
+                .add(collection)
+                .addOnSuccessListener(new OnSuccessListener<DocumentReference>() {
+                    @Override
+                    public void onSuccess(DocumentReference documentReference) {
+                        Log.d("MyActivity", "Addes to database: " + documentReference.getId());
+                    }
+                })
+                .addOnFailureListener(new OnFailureListener() {
+                    @Override
+                    public void onFailure(@NonNull Exception e) {
+                        Log.w("MyActivity", "Error adding to database", e);
+                    }
+                });
+    }
+
     //--- Random Functions ---//
     // Manually fill the control staton list with random stations for demo
-    private void fillControlStationList(){
+    private void fillControlStationList(Map<String, Object> collection){
         Log.d("MyActivity", "Filling Control Station List with random stations... ");
-        controlStationsCurrent.add("MONTGOMERY");
-        controlStationsCurrent.add("BOILEAU");
-        controlStationsCurrent.add("LEOPOLDII");
-        controlStationsCurrent.add("SCHUMAN");
+        //controlStationsCurrent.add("MONTGOMERY");
+        //controlStationsCurrent.add("BOILEAU");
+        //controlStationsCurrent.add("LEOPOLDII");
+        //controlStationsCurrent.add("SCHUMAN");
+        addToDatabase(collection, "Station Name", "MONTGOMERY");
+        addToDatabase(collection, "Station Name", "BOILEAU");
+        addToDatabase(collection, "Station Name", "LEOPOLDII");
+        addToDatabase(collection, "Station Name", "SCHUMAN");
     }
 }
