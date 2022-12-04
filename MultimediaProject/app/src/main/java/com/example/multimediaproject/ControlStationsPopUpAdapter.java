@@ -1,6 +1,7 @@
 package com.example.multimediaproject;
 
 import android.content.Context;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -14,12 +15,14 @@ public class ControlStationsPopUpAdapter extends BaseAdapter {
     private Context context;
     private List<String> stationsToCheck;
     private List<String> controlStations;
+    private MainActivity mainActivity;
 
-    public ControlStationsPopUpAdapter(Context context, List stationsToCheck, List controlStations){
+    public ControlStationsPopUpAdapter(Context context, List stationsToCheck, List controlStations, MainActivity mainActivity){
         super();
         this.context = context;
         this.stationsToCheck = stationsToCheck;
         this.controlStations = controlStations;
+        this.mainActivity = mainActivity;
     }
 
     @Override
@@ -52,21 +55,44 @@ public class ControlStationsPopUpAdapter extends BaseAdapter {
         btnYes.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                // Check if already in control list
-                if(controlStations.contains(stationsToCheck.get(i))){
-                    // Stays in list
-                }
-                else{ // Not yet in list
-                    controlStations.add(stationsToCheck.get(i));
-                }
+                mainActivity.retrieveFromDatabase(new MainActivity.FirestoreCallback() {
+                    @Override
+                    public void onCallback(List<String> currentControlStationsDB) {
+                        //Log.d("MyActivity", "Call Back from Database: Done");
+                        if(!currentControlStationsDB.contains(stationsToCheck.get(i))){ // not yet in list
+                            Log.d("MyActivity", "Station not yet in database, adding to Database: " + stationsToCheck.get(i));
+                            mainActivity.addToDatabase(mainActivity.currentControlStationDoc, stationsToCheck.get(i));
+                        }
+                        else {
+                            Log.d("MyActivity", "Station already in database: " + stationsToCheck.get(i));
+                        }
+                        // disable both buttons when one of them is pressed
+                        btnYes.setEnabled(false);
+                        btnNo.setEnabled(false);
+                    }
+                });
             }
         });
         // NO
         btnNo.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                // Has to be in the control list
-                controlStations.remove((stationsToCheck.get(i)));
+                mainActivity.retrieveFromDatabase(new MainActivity.FirestoreCallback() {
+                    @Override
+                    public void onCallback(List<String> currentControlStationsDB) {
+                        // check if in database, if so -> remove
+                        if(currentControlStationsDB.contains(stationsToCheck.get(i))){
+                            Log.d("MyActivity", "Removing from database: " + stationsToCheck.get(i));
+                            mainActivity.removeFromDatabase(stationsToCheck.get(i));
+                        }
+                        else{
+                            Log.d("MyActivity", "Station not in database: " + stationsToCheck.get(i));
+                        }
+                        // disable both buttons when one of them is pressed
+                        btnYes.setEnabled(false);
+                        btnNo.setEnabled(false);
+                    }
+                });
             }
         });
 

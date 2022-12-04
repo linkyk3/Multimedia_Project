@@ -6,6 +6,7 @@ import androidx.annotation.NonNull;
 
 
 import android.Manifest;
+import android.content.Context;
 import android.content.DialogInterface;
 import android.content.pm.PackageManager;
 import android.location.Location;
@@ -66,13 +67,15 @@ public class MainActivity extends AppCompatActivity {
     Button btnControl;
     AutoCompleteTextView controlStationInput;
 
-    //---Location Stuff:---//
+    //--- Location ---//
     // Config file for all settings related to FusedLocationProviderContent
     LocationRequest locationRequest;
     // Google API for location services
     FusedLocationProviderClient fusedLocationProviderClient;
     // Necessary for a function
     LocationCallback locationCallBack;
+    // Location updater counter
+    private int locationUpdateCounter = 0;
 
     // Lists
     private List<StationSample> stationData = new ArrayList<>(); // list with the CSV stops data
@@ -95,13 +98,14 @@ public class MainActivity extends AppCompatActivity {
     private ControlStationsPopUpAdapter controlsToCheckAdapter;
 
     // Firestone database: used for the control stations
-    private FirebaseFirestore firestoreDB = FirebaseFirestore.getInstance();
-    private Map<String, Object> currentControlStationDoc = new HashMap<>();
-    private String collectionName = "Current Control Stations";
-    private String document = "Station Name";
+    public FirebaseFirestore firestoreDB = FirebaseFirestore.getInstance();
+    public Map<String, Object> currentControlStationDoc = new HashMap<>();
+    public String collectionName = "Current Control Stations";
+    public String document = "Station Name";
     private List<String> dataDB = new ArrayList<>();
-    private List<String> tempControlStations = new ArrayList<>();
+    private List<String> prevControlStations = new ArrayList<>();
     private boolean callBackDone = false;
+    private boolean firstCall = true;
 
 
     @Override
@@ -151,6 +155,8 @@ public class MainActivity extends AppCompatActivity {
         startLocationUpdates();
         updateGPS();
 
+        updateControlLV();
+
         //--- UI Listeners ---//
         // SUBMIT
         btnControleSubmit.setOnClickListener(new View.OnClickListener() {
@@ -162,24 +168,17 @@ public class MainActivity extends AppCompatActivity {
                 retrieveFromDatabase(new FirestoreCallback() {
                     @Override
                     public void onCallback(List<String> currentControlStationsDB) {
-                        controlStationsCurrent.clear();
-                        controlStationsCurrent = currentControlStationsDB;
-                        printStringList(currentControlStationsDB);
-                        printStringList(controlStationsCurrent);
+                        //Log.d("MyActivity", "Call Back from Database: Done");
+                        if(!currentControlStationsDB.contains(stationName)){ // not yet in list
+                            Log.d("MyActivity", "Station not yet in database, adding to Database: " + stationName);
+                            addToDatabase(currentControlStationDoc, stationName);
+                            updateControlLV();
+                        }
+                        else{
+                            Log.d("MyActivity", "Station already in database: " + stationName);
+                        }
                     }
                 });
-
-                printStringList(controlStationsCurrent);
-
-                if(controlStationsCurrent.contains(stationName)){
-                    // Already in list -> ignore
-                }
-                else{ // Not yet in firestone database
-                    addToDatabase(currentControlStationDoc, collectionName, document, stationName);
-                }
-                //Log.d("MyActivity", "Added to control stations: " + stationName);
-                //Log.d("MyActivity", "Check control station list " + controlStationsCurrent.get(0));
-                updateGPS();
             }
         });
         // CONTROL
@@ -204,7 +203,7 @@ public class MainActivity extends AppCompatActivity {
                 popUpControlDialog.show();
 
                 controlsToCheckListView = (ListView) popUpControlView.findViewById(R.id.listViewControlsToCheck);
-                controlsToCheckAdapter = new ControlStationsPopUpAdapter(getApplicationContext(), controlStationsToCheck, controlStationsCurrent);
+                controlsToCheckAdapter = new ControlStationsPopUpAdapter(getApplicationContext(), controlStationsToCheck, controlStationsCurrent, MainActivity.this);
                 controlsToCheckListView.setAdapter(controlsToCheckAdapter);
                 printStringList(controlStationsCurrent);
 
@@ -213,6 +212,7 @@ public class MainActivity extends AppCompatActivity {
                     @Override
                     public void onDismiss(DialogInterface dialogInterface) {
                         updateGPS();
+                        updateControlLV();
                     }
                 });
             }
@@ -259,9 +259,9 @@ public class MainActivity extends AppCompatActivity {
                 public void onSuccess(Location location) {
                     // we got permission, put values of location in to the UI
                     updateUI(location);
-
                     // check nearby stations everytime location is updated
                     checkNearbyStations(location);
+
                 }
             });
         }
@@ -277,9 +277,10 @@ public class MainActivity extends AppCompatActivity {
     //--- UI Functions ---//
     private void updateUI(Location location) {
         Log.d("MyActivity", "Updating UI...");
+        locationUpdateCounter++;
+        Log.d("MyActivity", "Location Update Counter: " + locationUpdateCounter);
         // Update List Views
         //printNearbyStationList();
-
 
         // Set List Views
         // Nearby Station List View
@@ -289,26 +290,12 @@ public class MainActivity extends AppCompatActivity {
         nearbyStationsListView.setAdapter(nearbyStationsAdapter);
         nearbyStationsAdapter.notifyDataSetChanged();
 
-        // Control Station List View
-        //Log.d("MyActivity", "Setting Current Control Stations List View...");
-        // Get latest control stations from the firestone database
-        retrieveFromDatabase(new FirestoreCallback() {
-            @Override
-            public void onCallback(List<String> currentControlStationsDB) {
-                Log.d("MyActivity", "Call Back from Database: Done");
-                tempControlStations = currentControlStationsDB;
-                callBackDone = true;
-                //controlStationsCurrent.addAll(currentControlStationsDB);
-                //controlStationsCurrent.retainAll(currentControlStationsDB);
-            }
-        });
-        if (callBackDone = true){ // if callback is done -> use the new list
-            controlStationsCurrent = tempControlStations;
-        } // use "old" list
-        controlStationsListView = (ListView) findViewById(R.id.listViewControls);
-        controlStationsAdapter = new ControlStationsAdapter(this, controlStationsCurrent);
-        controlStationsListView.setAdapter(controlStationsAdapter);
-        controlStationsAdapter.notifyDataSetChanged();
+        // Update Control list view every x times the location updates
+        // Calling DB takes time -> every time the location updates is to fast
+        if (locationUpdateCounter % 10 == 0){
+            updateControlLV();
+        }
+
     }
 
     //--- Data Functions ---//
@@ -414,8 +401,16 @@ public class MainActivity extends AppCompatActivity {
     }
 
     //--- Firebase Functions ---//
+    // Custom call back -> needed because the Listener functions work asynchronous
+    public interface FirestoreCallback{
+        void onCallback(List<String> currentControlStations);
+    }
+    // Context function
+    private Context getContext(){
+        return (Context)this;
+    }
     // Add a station to the database
-    private void addToDatabase(Map<String, Object> collection, String collectionName, String document, String dataElement){
+    public void addToDatabase(Map<String, Object> collection, String dataElement){
         collection.put(document, dataElement);
         firestoreDB.collection(collectionName).add(collection)
                 .addOnSuccessListener(new OnSuccessListener<DocumentReference>() {
@@ -432,16 +427,43 @@ public class MainActivity extends AppCompatActivity {
                 });
     }
 
-    // Custom call back -> needed because the Listener functions work asynchronous
-    private interface FirestoreCallback{
-        void onCallback(List<String> currentControlStations);
+    // Delete a specified item from the database -> already checked if in database
+    public void removeFromDatabase(String dataElement){
+        // first get the corresponding documentID to the dataElement
+        firestoreDB.collection(collectionName)
+                .whereEqualTo(document, dataElement)
+                .get().addOnCompleteListener(new OnCompleteListener<QuerySnapshot>() {
+                    @Override
+                    public void onComplete(@NonNull Task<QuerySnapshot> task) {
+                        if(task.isSuccessful() && !task.getResult().isEmpty()){
+                            DocumentSnapshot documentSnapshot = task.getResult().getDocuments().get(0);
+                            String documentID = documentSnapshot.getId();
+                            // delete corresponding document
+                            firestoreDB.collection(collectionName)
+                                    .document(documentID)
+                                    .delete()
+                                    .addOnSuccessListener(new OnSuccessListener<Void>() {
+                                        @Override
+                                        public void onSuccess(Void unused) {
+                                            Log.d("MyActivity", "Removed from database: " + documentID);
+                                        }
+                                    })
+                                    .addOnFailureListener(new OnFailureListener() {
+                                        @Override
+                                        public void onFailure(@NonNull Exception e) {
+                                            Log.d("MyActivity", "Error occurred when removing document");
+                                        }
+                                    });
+                        }
+                    }
+                });
     }
 
     // Get all items from database corresponding to the document name (Station Name)
-    private void retrieveFromDatabase(FirestoreCallback firestoreCallback){
-        tempControlStations.clear();
+    public void retrieveFromDatabase(FirestoreCallback firestoreCallback){
+        dataDB.clear();
         callBackDone = false;
-        Log.d("MyActivity", "Retrieving data from database...");
+        Log.d("MyActivity", "Retrieving latest list from database...");
         firestoreDB.collection(collectionName).get()
                 .addOnCompleteListener(new OnCompleteListener<QuerySnapshot>() {
                     @Override
@@ -451,12 +473,29 @@ public class MainActivity extends AppCompatActivity {
                                 String dataElement = documentSnapshot.getString(document);
                                 dataDB.add(dataElement);
                             }
+                            //printStringList(dataDB);
                             firestoreCallback.onCallback(dataDB);
                         }
                     }
                 });
     }
 
+    //Get latest list from db and show in control list view -> function that calls the function
+    private void updateControlLV(){
+        // Control Station List View
+        Log.d("MyActivity", "Setting Current Control Stations List View...");
+        // Get latest control stations from the firestone database and set the listview
+        retrieveFromDatabase(new FirestoreCallback() {
+            @Override
+            public void onCallback(List<String> currentControlStationsDB) {
+                //Log.d("MyActivity", "Call Back from Database: Done");
+                controlStationsListView = (ListView) findViewById(R.id.listViewControls);
+                controlStationsAdapter = new ControlStationsAdapter(getContext(), currentControlStationsDB);
+                controlStationsListView.setAdapter(controlStationsAdapter);
+                controlStationsAdapter.notifyDataSetChanged();
+            }
+        });
+    }
 
     //--- Random Functions ---//
 }
