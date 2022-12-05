@@ -6,8 +6,10 @@ import androidx.annotation.NonNull;
 
 
 import android.Manifest;
+import android.app.Dialog;
 import android.content.Context;
 import android.content.DialogInterface;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.location.Location;
 import android.os.Build;
@@ -25,6 +27,8 @@ import android.util.Log;
 
 import android.widget.Toast;
 
+import com.google.android.gms.common.ConnectionResult;
+import com.google.android.gms.common.GoogleApiAvailability;
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationCallback;
 import com.google.android.gms.location.LocationRequest;
@@ -54,15 +58,18 @@ import java.util.Map;
 
 public class MainActivity extends AppCompatActivity {
     // Macros
+    private static final String TAG = "MainActivity";
     public static final int DEFAULT_UPDATE_INTERVAL = 30;
     public static final int FAST_UPDATE_INTERVAL = 5;
     private static final int PERMISSION_FINE_lOCATION = 99;
     private static final int DISTANCE_RADIUS = 500;
     private static final int CONTROL_RADIUS = 500;
     private static final DecimalFormat df = new DecimalFormat("0.00");
+    private static final int ERROR_DIALOG_REQUEST = 9001;
 
     // UI elements
     TextView textField;
+    Button btnMaps;
     Button btnControleSubmit;
     Button btnControl;
     AutoCompleteTextView controlStationInput;
@@ -76,12 +83,15 @@ public class MainActivity extends AppCompatActivity {
     LocationCallback locationCallBack;
     // Location updater counter
     private int locationUpdateCounter = 0;
+    // Current long and lat
+    public double currentLongitude;
+    public double currentLatitude;
 
     // Lists
-    private List<StationSample> stationData = new ArrayList<>(); // list with the CSV stops data
-    private List<NearbyStations> nearbyStations = new ArrayList<>(); // list with the nearby stations -> see DISTANCE_RADIUS
-    private List<String> controlStationsCurrent = new ArrayList<>(); // list with the stations where a control is happening (current controls)
-    private List<String> controlStationsToCheck = new ArrayList<>(); // list with the nearby stations that have to be checked if there is a control -> see CONTROL_RADIUS
+    private final List<StationSample> stationData = new ArrayList<>(); // list with the CSV stops data
+    private final List<NearbyStations> nearbyStations = new ArrayList<>(); // list with the nearby stations -> see DISTANCE_RADIUS
+    private final List<String> controlStationsCurrent = new ArrayList<>(); // list with the stations where a control is happening (current controls)
+    private final List<String> controlStationsToCheck = new ArrayList<>(); // list with the nearby stations that have to be checked if there is a control -> see CONTROL_RADIUS
 
     // Arrays
     private String[] autoCompleteStations;
@@ -118,6 +128,7 @@ public class MainActivity extends AppCompatActivity {
         readStationData();
 
         //---UI elements---//
+        btnMaps = findViewById(R.id.btnMaps);
         btnControleSubmit = findViewById(R.id.btnControleSubmit);
         btnControl = findViewById(R.id.btnControls);
 
@@ -158,6 +169,16 @@ public class MainActivity extends AppCompatActivity {
         updateControlLV();
 
         //--- UI Listeners ---//
+        // MAPS
+        btnMaps.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                Intent intentMaps = new Intent(MainActivity.this, MapsActivity.class);
+                intentMaps.putExtra("Current Longitude", Double.toString(currentLongitude));
+                intentMaps.putExtra("Current Latitude", Double.toString(currentLatitude));
+                startActivity(intentMaps);
+            }
+        });
         // SUBMIT
         btnControleSubmit.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -173,6 +194,7 @@ public class MainActivity extends AppCompatActivity {
                             Log.d("MyActivity", "Station not yet in database, adding to Database: " + stationName);
                             addToDatabase(currentControlStationDoc, stationName);
                             updateControlLV();
+                            controlStationInput.setText("");
                         }
                         else{
                             Log.d("MyActivity", "Station already in database: " + stationName);
@@ -257,11 +279,15 @@ public class MainActivity extends AppCompatActivity {
             fusedLocationProviderClient.getLastLocation().addOnSuccessListener(this, new OnSuccessListener<Location>() {
                 @Override
                 public void onSuccess(Location location) {
+                    // pass the current long and lat to corresponding vars
+                    currentLongitude = location.getLongitude();
+                    currentLatitude = location.getLatitude();
+                    //currentLongitude = 50.837398;
+                    //currentLatitude = 4.407608;
                     // we got permission, put values of location in to the UI
                     updateUI(location);
                     // check nearby stations everytime location is updated
                     checkNearbyStations(location);
-
                 }
             });
         }
@@ -273,6 +299,27 @@ public class MainActivity extends AppCompatActivity {
         }
         
     }
+
+    //--- Google Maps Functions ---//
+    public boolean isServicesOK(){
+        Log.d(TAG, "isServicesOK: checking google services version...");
+
+        int available = GoogleApiAvailability.getInstance().isGooglePlayServicesAvailable(MainActivity.this);
+
+        if(available == ConnectionResult.SUCCESS){
+            Log.d(TAG, "isServicesOK: Google Play Services is working");
+            return true;
+        }
+        else if(GoogleApiAvailability.getInstance().isUserResolvableError(available)){
+            Log.d(TAG, "isServicesOK: an error occured but fixable");
+            Dialog dialog = GoogleApiAvailability.getInstance().getErrorDialog(MainActivity.this, available, ERROR_DIALOG_REQUEST);
+            dialog.show();
+        }else{
+            Toast.makeText(this, "You can't make map requests", Toast.LENGTH_SHORT).show();
+        }
+        return false;
+    }
+
 
     //--- UI Functions ---//
     private void updateUI(Location location) {
@@ -343,8 +390,8 @@ public class MainActivity extends AppCompatActivity {
             Location stationLocation = new Location(stationData.get(i).getStation());
             stationLocation.setLatitude(stationData.get(i).getLatitude());
             stationLocation.setLongitude(stationData.get(i).getLongitude());
-            currentLocation.setLatitude(50.837398); // test location
-            currentLocation.setLongitude(4.407608); // test location
+            currentLocation.setLatitude(currentLatitude); // test location
+            currentLocation.setLongitude(currentLongitude); // test location
             // Calculate distance
             double distance = currentLocation.distanceTo(stationLocation);
             //Log.d("MyActivity", "Distance:" + distance);
