@@ -14,6 +14,7 @@ import android.content.pm.PackageManager;
 import android.location.Location;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Parcelable;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.ArrayAdapter;
@@ -88,7 +89,7 @@ public class MainActivity extends AppCompatActivity {
     public double currentLatitude;
 
     // Lists
-    private final List<StationSample> stationData = new ArrayList<>(); // list with the CSV stops data
+    private final ArrayList<StationSample> stationData = new ArrayList<>(); // list with the CSV stops data
     private final List<NearbyStations> nearbyStations = new ArrayList<>(); // list with the nearby stations -> see DISTANCE_RADIUS
     private final List<String> controlStationsCurrent = new ArrayList<>(); // list with the stations where a control is happening (current controls)
     private final List<String> controlStationsToCheck = new ArrayList<>(); // list with the nearby stations that have to be checked if there is a control -> see CONTROL_RADIUS
@@ -158,6 +159,9 @@ public class MainActivity extends AppCompatActivity {
             }
         };
 
+        // GMaps services check
+        isServicesOK();
+
         // First call this function so that the locationRequest object is made an permission is checked
         updateGPS();
 
@@ -174,6 +178,9 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onClick(View view) {
                 Intent intentMaps = new Intent(MainActivity.this, MapsActivity.class);
+                Bundle bundle = new Bundle();
+                bundle.putParcelableArrayList("StationData", stationData);
+                intentMaps.putExtra("Station Data", bundle);
                 intentMaps.putExtra("Current Longitude", Double.toString(currentLongitude));
                 intentMaps.putExtra("Current Latitude", Double.toString(currentLatitude));
                 startActivity(intentMaps);

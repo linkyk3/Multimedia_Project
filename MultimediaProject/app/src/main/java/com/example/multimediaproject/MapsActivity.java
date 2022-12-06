@@ -17,7 +17,11 @@ import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
+
+import java.util.ArrayList;
+import java.util.List;
 
 public class MapsActivity extends AppCompatActivity implements OnMapReadyCallback {
     @Override
@@ -30,8 +34,17 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
             if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
                 return;
             }
+            // Own Location
             gMap.setMyLocationEnabled(true);
             gMap.getUiSettings().setMyLocationButtonEnabled(false);
+            // Station Markers
+            for(int i = 0; i < stationData.size(); i++){
+                MarkerOptions markerOptions = new MarkerOptions();
+                LatLng latLng = new LatLng(stationData.get(i).getLatitude(), stationData.get(i).getLongitude());
+                markerOptions.position(latLng);
+                markerOptions.title(stationData.get(i).getStation());
+            }
+
         }
 
     }
@@ -39,8 +52,8 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
     private static final float DEFAULT_ZOOM = 15f;
 
     private GoogleMap gMap;
-
     private LatLng currentLatLng;
+    private List<StationSample> stationData = new ArrayList<>();
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -60,6 +73,8 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         Intent intent = getIntent();
         double currentLongitude = Double.parseDouble(intent.getStringExtra("Current Longitude"));
         double currentLatitude = Double.parseDouble(intent.getStringExtra("Current Latitude"));
+        Bundle bundle = intent.getExtras();
+        stationData = bundle.getParcelableArrayList("Station Data");
         Log.d(TAG, "Current Longitude: " + currentLongitude);
         Log.d(TAG, "Current Latitude: " + currentLatitude);
         // Parse to LatLng type
