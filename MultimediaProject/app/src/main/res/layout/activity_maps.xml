@@ -10,6 +10,8 @@
         android:layout_height="match_parent"
         android:id="@+id/map"
         tools:context=".MapsActivity"
+        android:apiKey="AIzaSyDLJpIfQiF9hy7g3BgZoqYmwanapd61aB8"
         android:name="com.google.android.gms.maps.SupportMapFragment" />
+
 
 </RelativeLayout>

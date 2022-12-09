@@ -3,20 +3,10 @@ package com.example.multimediaproject;
 import android.os.Parcel;
 import android.os.Parcelable;
 
-public class StationSample implements Parcelable {
+public class StationSample {
     private double longitude;
     private double latitude;
     private String station;
-
-    public StationSample(Parcel parcel) {
-        longitude = parcel.readDouble();
-        latitude = parcel.readDouble();
-        station = parcel.readString();
-    }
-
-    public StationSample(){
-
-    }
 
     public double getLongitude() {
         return longitude;
@@ -50,29 +40,4 @@ public class StationSample implements Parcelable {
                 ", station='" + station + '\'' +
                 '}';
     }
-
-    @Override
-    public int describeContents() {
-        return 0;
-    }
-
-    @Override
-    public void writeToParcel(Parcel parcel, int i) {
-        parcel.writeDouble(longitude);
-        parcel.writeDouble(latitude);
-        parcel.writeString(station);
-    }
-
-    public static final Parcelable.Creator<StationSample> CREATOR = new Parcelable.Creator<StationSample>(){
-
-        @Override
-        public StationSample createFromParcel(Parcel parcel) {
-            return new StationSample(parcel);
-        }
-
-        @Override
-        public StationSample[] newArray(int i) {
-            return new StationSample[i];
-        }
-    };
 }

@@ -153,7 +153,6 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onLocationResult(@NonNull LocationResult locationResult) {
                 super.onLocationResult(locationResult);
-
                 // save the location
                 updateUI(locationResult.getLastLocation());
             }
@@ -178,9 +177,9 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onClick(View view) {
                 Intent intentMaps = new Intent(MainActivity.this, MapsActivity.class);
-                Bundle bundle = new Bundle();
-                bundle.putParcelableArrayList("StationData", stationData);
-                intentMaps.putExtra("Station Data", bundle);
+                //Bundle bundle = new Bundle();
+                //bundle.putParcelableArrayList("StationData", stationData);
+                //intentMaps.putExtra("Station Data", bundle);
                 intentMaps.putExtra("Current Longitude", Double.toString(currentLongitude));
                 intentMaps.putExtra("Current Latitude", Double.toString(currentLatitude));
                 startActivity(intentMaps);
@@ -192,19 +191,19 @@ public class MainActivity extends AppCompatActivity {
             public void onClick(View view) {
                 // Get input from UI
                 String stationName = controlStationInput.getText().toString();
-                // Get the latetst control station list from the firestone database
+                // Get the latest control station list from the firestone database
                 retrieveFromDatabase(new FirestoreCallback() {
                     @Override
                     public void onCallback(List<String> currentControlStationsDB) {
                         //Log.d("MyActivity", "Call Back from Database: Done");
                         if(!currentControlStationsDB.contains(stationName)){ // not yet in list
-                            Log.d("MyActivity", "Station not yet in database, adding to Database: " + stationName);
+                            Log.d(TAG, "Station not yet in database, adding to Database: " + stationName);
                             addToDatabase(currentControlStationDoc, stationName);
                             updateControlLV();
                             controlStationInput.setText("");
                         }
                         else{
-                            Log.d("MyActivity", "Station already in database: " + stationName);
+                            Log.d(TAG, "Station already in database: " + stationName);
                         }
                     }
                 });
@@ -214,7 +213,7 @@ public class MainActivity extends AppCompatActivity {
         btnControl.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                Log.d("MyActivity", "Checking controls at nearby stations");
+                Log.d(TAG, "Checking controls at nearby stations");
                 // Check the nearby stations that have to be controlled
                 checkNearbyControlStations();
                 // Launch pop up window
@@ -330,9 +329,9 @@ public class MainActivity extends AppCompatActivity {
 
     //--- UI Functions ---//
     private void updateUI(Location location) {
-        Log.d("MyActivity", "Updating UI...");
+        Log.d(TAG, "Updating UI...");
         locationUpdateCounter++;
-        Log.d("MyActivity", "Location Update Counter: " + locationUpdateCounter);
+        Log.d(TAG, "Location Update Counter: " + locationUpdateCounter);
         // Update List Views
         //printNearbyStationList();
 
@@ -381,7 +380,7 @@ public class MainActivity extends AppCompatActivity {
                 //Log.d("MyActivity", "Just created:" + sample.toString());
             }
         } catch (IOException e) {
-            Log.wtf("MyActivity", "Error reading data file on line" + line, e);
+            Log.wtf(TAG, "Error reading data file on line" + line, e);
             e.printStackTrace();
         }
     }
@@ -413,7 +412,7 @@ public class MainActivity extends AppCompatActivity {
                 // Add it to the list
                 nearbyStations.add(nearbyStation);
                 //textField.setText("\nStation Name: " + nearbyStation.getStation() + ", " + "Distance: "+ df.format(nearbyStation.getDistance()) + "m") ;
-                Log.d("MyActivity", "Just added station: " + nearbyStation.toString());
+                Log.d(TAG, "Just added station: " + nearbyStation.toString());
             }
         }
     }
@@ -428,11 +427,11 @@ public class MainActivity extends AppCompatActivity {
     // Check if user is within close proximity from a station and ask if there is a control -> pop up window
     private void checkNearbyControlStations(){
         controlStationsToCheck.clear();
-        Log.d("MyActivity", "Size: " + nearbyStations.size());
+        Log.d(TAG, "Size: " + nearbyStations.size());
         for(int i = 0; i < nearbyStations.size(); i++){
-            Log.d("MyActivity", "Distance: " + nearbyStations.get(i).getDistance());
+            Log.d(TAG, "Distance: " + nearbyStations.get(i).getDistance());
             if(nearbyStations.get(i).getDistance() <= CONTROL_RADIUS){
-                Log.d("MyActivity", "Within Control Radius: " + nearbyStations.get(i).getStation());
+                Log.d(TAG, "Within Control Radius: " + nearbyStations.get(i).getStation());
                 // add it to the nearby control stations list to be checked
                 controlStationsToCheck.add(nearbyStations.get(i).getStation());
             }
@@ -441,16 +440,16 @@ public class MainActivity extends AppCompatActivity {
 
     // --- Debug Functions --- //
     private void printNearbyStationList(){
-        Log.d("MyActivity", "Printing nearby stations... ");
+        Log.d(TAG, "Printing nearby stations... ");
         for (int i = 0; i < nearbyStations.size(); i++){
-            Log.d("MyActivity", "In nearby stations list: " + nearbyStations.get(i).getStation());
+            Log.d(TAG, "In nearby stations list: " + nearbyStations.get(i).getStation());
         }
     }
 
     private void printStringList(List<String> stationList){
-        Log.d("MyActivity", "Printing String List... ");
+        Log.d(TAG, "Printing String List... ");
         for (int i = 0; i < stationList.size(); i++){
-            Log.d("MyActivity", "Station in List: " + stationList.get(i));
+            Log.d(TAG, "Station in List: " + stationList.get(i));
         }
     }
 
@@ -470,13 +469,13 @@ public class MainActivity extends AppCompatActivity {
                 .addOnSuccessListener(new OnSuccessListener<DocumentReference>() {
                     @Override
                     public void onSuccess(DocumentReference documentReference) {
-                        Log.d("MyActivity", "Added to database: " + documentReference.getId());
+                        Log.d(TAG, "Added to database: " + documentReference.getId());
                     }
                 })
                 .addOnFailureListener(new OnFailureListener() {
                     @Override
                     public void onFailure(@NonNull Exception e) {
-                        Log.w("MyActivity", "Error adding to database", e);
+                        Log.w(TAG, "Error adding to database", e);
                     }
                 });
     }
@@ -499,13 +498,13 @@ public class MainActivity extends AppCompatActivity {
                                     .addOnSuccessListener(new OnSuccessListener<Void>() {
                                         @Override
                                         public void onSuccess(Void unused) {
-                                            Log.d("MyActivity", "Removed from database: " + documentID);
+                                            Log.d(TAG, "Removed from database: " + documentID);
                                         }
                                     })
                                     .addOnFailureListener(new OnFailureListener() {
                                         @Override
                                         public void onFailure(@NonNull Exception e) {
-                                            Log.d("MyActivity", "Error occurred when removing document");
+                                            Log.d(TAG, "Error occurred when removing document");
                                         }
                                     });
                         }
@@ -517,7 +516,7 @@ public class MainActivity extends AppCompatActivity {
     public void retrieveFromDatabase(FirestoreCallback firestoreCallback){
         dataDB.clear();
         callBackDone = false;
-        Log.d("MyActivity", "Retrieving latest list from database...");
+        Log.d(TAG, "Retrieving latest list from database...");
         firestoreDB.collection(collectionName).get()
                 .addOnCompleteListener(new OnCompleteListener<QuerySnapshot>() {
                     @Override
@@ -537,7 +536,7 @@ public class MainActivity extends AppCompatActivity {
     //Get latest list from db and show in control list view -> function that calls the function
     private void updateControlLV(){
         // Control Station List View
-        Log.d("MyActivity", "Setting Current Control Stations List View...");
+        Log.d(TAG, "Setting Current Control Stations List View...");
         // Get latest control stations from the firestone database and set the listview
         retrieveFromDatabase(new FirestoreCallback() {
             @Override
