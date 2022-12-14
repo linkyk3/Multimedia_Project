@@ -14,7 +14,6 @@ import android.content.pm.PackageManager;
 import android.location.Location;
 import android.os.Build;
 import android.os.Bundle;
-import android.os.Parcelable;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.ArrayAdapter;
@@ -22,7 +21,6 @@ import android.widget.AutoCompleteTextView;
 import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.ListView;
-import android.widget.TextView;
 
 import android.util.Log;
 
@@ -50,7 +48,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
-import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -58,20 +55,20 @@ import java.util.Map;
 
 
 public class MainActivity extends AppCompatActivity {
-    // Macros
+    //--- Macros ---//
     private static final String TAG = "MainActivity";
-    public static final int DEFAULT_UPDATE_INTERVAL = 30;
-    public static final int FAST_UPDATE_INTERVAL = 5;
-    private static final int PERMISSION_FINE_lOCATION = 99;
+    public  static final int DEFAULT_UPDATE_INTERVAL = 30;
+    public  static final int FAST_UPDATE_INTERVAL = 5;
+    private static final int PERMISSION_FINE_LOCATION = 99;
     private static final int DISTANCE_RADIUS = 500;
     private static final int CONTROL_RADIUS = 500;
-    private static final DecimalFormat df = new DecimalFormat("0.00");
+    //private static final DecimalFormat df = new DecimalFormat("0.00");
     private static final int ERROR_DIALOG_REQUEST = 9001;
 
-    // UI elements
-    TextView textField;
+    //--- UI Elements ---//
+    //TextView textField;
     Button btnMaps;
-    Button btnControleSubmit;
+    Button btnControlSubmit;
     Button btnControl;
     AutoCompleteTextView controlStationInput;
 
@@ -88,19 +85,16 @@ public class MainActivity extends AppCompatActivity {
     public double currentLongitude;
     public double currentLatitude;
 
-    // Lists
+    //--- Lists ---//
     private final ArrayList<StationSample> stationData = new ArrayList<>(); // list with the CSV stops data
     private final List<NearbyStations> nearbyStations = new ArrayList<>(); // list with the nearby stations -> see DISTANCE_RADIUS
     private final List<String> controlStationsCurrent = new ArrayList<>(); // list with the stations where a control is happening (current controls)
     private final List<String> controlStationsToCheck = new ArrayList<>(); // list with the nearby stations that have to be checked if there is a control -> see CONTROL_RADIUS
 
-    // Arrays
-    private String[] autoCompleteStations;
+    //--- Arrays ---//
+    private String[] autoCompleteStations; // array for the autocomplete feature
 
-    // List Views and Adapters
-    // Nearby Stations
-    private ListView nearbyStationsListView;
-    private NearbyStationsAdapter nearbyStationsAdapter;
+    //--- List Views and Adapters ---//
     // Current Controls
     private ListView controlStationsListView;
     private ControlStationsAdapter controlStationsAdapter;
@@ -108,53 +102,52 @@ public class MainActivity extends AppCompatActivity {
     private ListView controlsToCheckListView;
     private ControlStationsPopUpAdapter controlsToCheckAdapter;
 
-    // Firestone database: used for the control stations
-    public FirebaseFirestore firestoreDB = FirebaseFirestore.getInstance();
-    public Map<String, Object> currentControlStationDoc = new HashMap<>();
-    public String collectionName = "Current Control Stations";
-    public String document = "Station Name";
-    private List<String> dataDB = new ArrayList<>();
-    private List<String> prevControlStations = new ArrayList<>();
-    private boolean callBackDone = false;
-    private boolean firstCall = true;
+    //--- Firestone database ---//
+    public FirebaseFirestore firestoreDB = FirebaseFirestore.getInstance(); // Firestore DB Instance
+    public Map<String, Object> currentControlStationDoc = new HashMap<>(); // Firestore Object
+    public String collectionName = "Current Control Stations"; // Firestore Collection Name
+    public String document = "Station Name"; // Firestore document Name
+    private final List<String> dataDB = new ArrayList<>(); // List that is returned from the database
+    //private final List<String> prevControlStations = new ArrayList<>();
+    //private boolean callBackDone = false;
+    //private boolean firstCall = true;
 
-
+    //--- onCreate ---//
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        View rootView = findViewById(android.R.id.content);
+        //View rootView = findViewById(android.R.id.content);
 
         // Read CSV file
         readStationData();
 
         //---UI elements---//
         btnMaps = findViewById(R.id.btnMaps);
-        btnControleSubmit = findViewById(R.id.btnControleSubmit);
+        btnControlSubmit = findViewById(R.id.btnControleSubmit);
         btnControl = findViewById(R.id.btnControls);
-
         // Auto Complete Text View
         controlStationInput = findViewById(R.id.TextViewControlStation);
         autoCompleteStations = new String[stationData.size()];
         getStationStringList();
-        ArrayAdapter<String> adapter = new ArrayAdapter<String>(this,
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(this,
                 android.R.layout.simple_list_item_1, autoCompleteStations);
         controlStationInput.setAdapter(adapter);
 
         //---Location---//
-        // set all properties of LocationRequest
+        // Set all properties of LocationRequest
         locationRequest = new LocationRequest();
         locationRequest.setInterval(1000 * DEFAULT_UPDATE_INTERVAL);
         locationRequest.setFastestInterval(1000 * FAST_UPDATE_INTERVAL);
         locationRequest.setPriority(LocationRequest.PRIORITY_BALANCED_POWER_ACCURACY);
 
-        // event that is triggered whenever the update interval is met
+        // Event that is triggered whenever the update interval is met
         locationCallBack = new LocationCallback() {
             @Override
             public void onLocationResult(@NonNull LocationResult locationResult) {
                 super.onLocationResult(locationResult);
                 // save the location
-                updateUI(locationResult.getLastLocation());
+                updateUI();
             }
         };
 
@@ -169,6 +162,7 @@ public class MainActivity extends AppCompatActivity {
         startLocationUpdates();
         updateGPS();
 
+        // Update the Control Stations List View
         updateControlLV();
 
         //--- UI Listeners ---//
@@ -177,16 +171,13 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onClick(View view) {
                 Intent intentMaps = new Intent(MainActivity.this, MapsActivity.class);
-                //Bundle bundle = new Bundle();
-                //bundle.putParcelableArrayList("StationData", stationData);
-                //intentMaps.putExtra("Station Data", bundle);
                 intentMaps.putExtra("Current Longitude", Double.toString(currentLongitude));
                 intentMaps.putExtra("Current Latitude", Double.toString(currentLatitude));
                 startActivity(intentMaps);
             }
         });
         // SUBMIT
-        btnControleSubmit.setOnClickListener(new View.OnClickListener() {
+        btnControlSubmit.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
                 // Get input from UI
@@ -229,7 +220,7 @@ public class MainActivity extends AppCompatActivity {
 
                 popUpControlDialog.setContentView(popUpControlView);
                 popUpControlDialog.show();
-
+                // Pass data to the pop up window
                 controlsToCheckListView = (ListView) popUpControlView.findViewById(R.id.listViewControlsToCheck);
                 controlsToCheckAdapter = new ControlStationsPopUpAdapter(getApplicationContext(), controlStationsToCheck, controlStationsCurrent, MainActivity.this);
                 controlsToCheckListView.setAdapter(controlsToCheckAdapter);
@@ -246,7 +237,7 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-    } // end Oncreate
+    } // end onCreate
 
     //--- Location/GPS Functions ---//
     private void startLocationUpdates() {
@@ -263,7 +254,7 @@ public class MainActivity extends AppCompatActivity {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         
         switch (requestCode) {
-            case PERMISSION_FINE_lOCATION:
+            case PERMISSION_FINE_LOCATION:
                 if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                     updateGPS();
                 }
@@ -275,9 +266,9 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void updateGPS() {
-        // get permissions from the user to track GPS
-        // get current location from the fused client
-        // update UI
+        // Get permissions from the user to track GPS
+        // Get current location from the fused client
+        // Update UI
         fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(MainActivity.this);
         // If permission is granted from the user
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
@@ -290,8 +281,7 @@ public class MainActivity extends AppCompatActivity {
                     currentLatitude = location.getLatitude();
                     //currentLongitude = 50.837398;
                     //currentLatitude = 4.407608;
-                    // we got permission, put values of location in to the UI
-                    updateUI(location);
+                    updateUI();
                     // check nearby stations everytime location is updated
                     checkNearbyStations(location);
                 }
@@ -300,21 +290,19 @@ public class MainActivity extends AppCompatActivity {
         else {
             // permission not granted yet
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) { // check OS version
-                requestPermissions(new String[] {Manifest.permission.ACCESS_FINE_LOCATION}, PERMISSION_FINE_lOCATION);
+                requestPermissions(new String[] {Manifest.permission.ACCESS_FINE_LOCATION}, PERMISSION_FINE_LOCATION);
             }
         }
         
     }
 
     //--- Google Maps Functions ---//
-    public boolean isServicesOK(){
+    public void isServicesOK(){
         Log.d(TAG, "isServicesOK: checking google services version...");
-
         int available = GoogleApiAvailability.getInstance().isGooglePlayServicesAvailable(MainActivity.this);
 
         if(available == ConnectionResult.SUCCESS){
             Log.d(TAG, "isServicesOK: Google Play Services is working");
-            return true;
         }
         else if(GoogleApiAvailability.getInstance().isUserResolvableError(available)){
             Log.d(TAG, "isServicesOK: an error occured but fixable");
@@ -323,20 +311,19 @@ public class MainActivity extends AppCompatActivity {
         }else{
             Toast.makeText(this, "You can't make map requests", Toast.LENGTH_SHORT).show();
         }
-        return false;
     }
 
 
     //--- UI Functions ---//
-    private void updateUI(Location location) {
+    private void updateUI() {
         Log.d(TAG, "Updating UI...");
         locationUpdateCounter++;
         Log.d(TAG, "Location Update Counter: " + locationUpdateCounter);
         // Update List Views
         //printNearbyStationList();
-
-        // Set List Views
-        // Nearby Station List View
+        // Set Nearby Station List View
+        ListView nearbyStationsListView;
+        NearbyStationsAdapter nearbyStationsAdapter;
         //Log.d("MyActivity", "Setting Nearby Station List View...");
         nearbyStationsListView = (ListView) findViewById(R.id.listViewNearbyStations);
         nearbyStationsAdapter = new NearbyStationsAdapter(this, nearbyStations);
@@ -411,8 +398,7 @@ public class MainActivity extends AppCompatActivity {
                 nearbyStation.setDistance(distance);
                 // Add it to the list
                 nearbyStations.add(nearbyStation);
-                //textField.setText("\nStation Name: " + nearbyStation.getStation() + ", " + "Distance: "+ df.format(nearbyStation.getDistance()) + "m") ;
-                Log.d(TAG, "Just added station: " + nearbyStation.toString());
+                Log.d(TAG, "Just added station: " + nearbyStation);
             }
         }
     }
@@ -515,7 +501,7 @@ public class MainActivity extends AppCompatActivity {
     // Get all items from database corresponding to the document name (Station Name)
     public void retrieveFromDatabase(FirestoreCallback firestoreCallback){
         dataDB.clear();
-        callBackDone = false;
+        //boolean callBackDone = false;
         Log.d(TAG, "Retrieving latest list from database...");
         firestoreDB.collection(collectionName).get()
                 .addOnCompleteListener(new OnCompleteListener<QuerySnapshot>() {
@@ -533,15 +519,15 @@ public class MainActivity extends AppCompatActivity {
                 });
     }
 
-    //Get latest list from db and show in control list view -> function that calls the function
+    // Get latest list from db and show in control list view
     private void updateControlLV(){
-        // Control Station List View
         Log.d(TAG, "Setting Current Control Stations List View...");
         // Get latest control stations from the firestone database and set the listview
         retrieveFromDatabase(new FirestoreCallback() {
             @Override
             public void onCallback(List<String> currentControlStationsDB) {
                 //Log.d("MyActivity", "Call Back from Database: Done");
+                //controlStationsCurrent = currentControlStationsDB;
                 controlStationsListView = (ListView) findViewById(R.id.listViewControls);
                 controlStationsAdapter = new ControlStationsAdapter(getContext(), currentControlStationsDB);
                 controlStationsListView.setAdapter(controlStationsAdapter);
@@ -549,6 +535,4 @@ public class MainActivity extends AppCompatActivity {
             }
         });
     }
-
-    //--- Random Functions ---//
 }
